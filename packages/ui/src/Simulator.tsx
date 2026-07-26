@@ -16,10 +16,10 @@ const PROJECT_NAMES = [
 ];
 
 const ACTIONS: Array<{ label: string; event: SessionEventType; title: string }> = [
-  { label: "Prompt", event: "working", title: "User submits a prompt → working (yellow pulse)" },
-  { label: "Permission", event: "permission_requested", title: "Agent asks permission → needs input (green pulse)" },
-  { label: "Question", event: "input_requested", title: "Agent asks for input → needs input (green pulse)" },
-  { label: "Finish", event: "completed", title: "Turn ends → completed (solid green)" },
+  { label: "Prompt", event: "working", title: "User submits a prompt → working (green pulse)" },
+  { label: "Permission", event: "permission_requested", title: "Agent asks permission → needs input (yellow pulse)" },
+  { label: "Question", event: "input_requested", title: "Agent asks for input → needs input (yellow pulse)" },
+  { label: "Finish", event: "completed", title: "Turn ends → completed (solid blue)" },
   { label: "Error", event: "error", title: "Terminal failure → error (red flash)" },
   { label: "End", event: "session_ended", title: "Session exits → ended (leg kept until cleared/expired)" },
   { label: "Resume", event: "session_started", title: "Session restarts → idle" },

@@ -6,6 +6,7 @@ const COLORS: Record<string, string> = {
   white: "#e8eaf2",
   yellow: "#ffc93c",
   green: "#3ddc84",
+  blue: "#4da3ff",
   red: "#ff4d5a",
 };
 

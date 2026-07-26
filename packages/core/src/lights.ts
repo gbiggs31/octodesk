@@ -13,11 +13,11 @@ export function lightForState(state: SessionState | null): LightSpec {
     case "ended": // assigned but dormant; resumable by pressing the leg
       return { color: "white", mode: "dim" };
     case "working":
-      return { color: "yellow", mode: "pulse" };
-    case "needs_input":
       return { color: "green", mode: "pulse" };
+    case "needs_input":
+      return { color: "yellow", mode: "pulse" };
     case "completed":
-      return { color: "green", mode: "solid" };
+      return { color: "blue", mode: "solid" };
     case "error":
       return { color: "red", mode: "flash" };
   }

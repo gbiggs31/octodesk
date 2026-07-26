@@ -1,12 +1,13 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { Engine } from "./engine.js";
+import { FocusService } from "./focus.js";
 import { Store } from "./store.js";
 
 const config = loadConfig();
 const store = new Store(config.dbPath);
 const engine = new Engine(store, config);
-const app = buildApp(engine);
+const app = buildApp(engine, new FocusService());
 
 const expiry = setInterval(() => engine.expireStale(), 60_000);
 

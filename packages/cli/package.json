@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
+    "octo": "dist/octo.js",
     "octo-event": "dist/octo-event.js"
   },
   "scripts": {

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { SessionRecord } from "@octodesk/core";
+import type { SessionRecord, WrapperInfo } from "@octodesk/core";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -16,6 +16,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   wrapId           TEXT,
   note             TEXT,
   PRIMARY KEY (provider, sessionId)
+);
+CREATE TABLE IF NOT EXISTS wrappers (
+  wrapId           TEXT PRIMARY KEY,
+  pid              INTEGER NOT NULL,
+  windowHandle     TEXT,
+  workingDirectory TEXT NOT NULL,
+  createdAt        TEXT NOT NULL
 );
 `;
 
@@ -69,6 +76,30 @@ export class Store {
     this.db
       .prepare("DELETE FROM sessions WHERE provider = ? AND sessionId = ?")
       .run(provider, sessionId);
+  }
+
+  loadWrappers(): WrapperInfo[] {
+    const rows = this.db.prepare("SELECT * FROM wrappers").all() as Array<
+      Omit<WrapperInfo, "pid"> & { pid: number | bigint }
+    >;
+    return rows.map((row) => ({ ...row, pid: Number(row.pid) }));
+  }
+
+  upsertWrapper(w: WrapperInfo): void {
+    this.db
+      .prepare(
+        `INSERT INTO wrappers (wrapId, pid, windowHandle, workingDirectory, createdAt)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (wrapId) DO UPDATE SET
+           pid = excluded.pid,
+           windowHandle = excluded.windowHandle,
+           workingDirectory = excluded.workingDirectory`,
+      )
+      .run(w.wrapId, w.pid, w.windowHandle, w.workingDirectory, w.createdAt);
+  }
+
+  removeWrapper(wrapId: string): void {
+    this.db.prepare("DELETE FROM wrappers WHERE wrapId = ?").run(wrapId);
   }
 
   close(): void {

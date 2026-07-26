@@ -284,17 +284,17 @@ main {
   background: #c7cdd51a;
 }
 .state-working {
-  color: #ffc93c;
-  background: #ffc93c1f;
+  color: #3ddc84;
+  background: #3ddc841f;
 }
 .state-needs_input {
-  color: #3ddc84;
-  background: #3ddc8426;
+  color: #ffc93c;
+  background: #ffc93c26;
   animation: pulse 1.6s ease-in-out infinite;
 }
 .state-completed {
-  color: #3ddc84;
-  background: #3ddc841f;
+  color: #4da3ff;
+  background: #4da3ff1f;
 }
 .state-error {
   color: #ff4d5a;

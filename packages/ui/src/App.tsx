@@ -16,11 +16,26 @@ export function App() {
 
   async function handlePress(target: "head" | "leg", leg?: number) {
     const result = await press(target, leg);
-    if (result.ok && result.session) {
-      // Phase 1 selects/highlights; Phase 2 will focus or resume the real terminal window.
-      showToast(`Selected ${result.session.projectName} (${result.session.provider})`);
-    } else {
+    if (!result.ok || !result.session) {
       showToast(result.reason ?? "Nothing there");
+      return;
+    }
+    const name = `${result.session.projectName} (${result.session.provider})`;
+    switch (result.action) {
+      case "focused":
+        showToast(`Focused ${name}`);
+        break;
+      case "resumed":
+        showToast(`Resuming ${name} in a new terminal…`);
+        break;
+      case "no_window":
+        showToast(result.detail ?? `${name} has no window to focus`);
+        break;
+      case "failed":
+        showToast(`Failed: ${result.detail ?? "could not focus or resume"}`);
+        break;
+      default:
+        showToast(`Selected ${name}`);
     }
   }
 

@@ -17,6 +17,7 @@
     "dev:daemon": "npm run dev -w @octodesk/daemon",
     "dev:ui": "npm run dev -w @octodesk/ui",
     "build:cli": "npm run build -w @octodesk/cli",
+    "link-cli": "npm run build:cli && npm link --workspace @octodesk/cli",
     "install-hooks": "npm run build:cli && node packages/cli/dist/install-hooks.js"
   },
   "devDependencies": {

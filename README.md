@@ -11,11 +11,11 @@ the same protocol comes later.
 | Light | Meaning |
 | --- | --- |
 | Off | Leg unassigned |
-| Dim white | Assigned, idle (or ended — press to resume later) |
-| Pulsing yellow | Agent is working |
-| Pulsing green | Agent needs input or permission |
-| Solid green | Agent finished, awaiting review |
-| Flashing red | Session blocked / terminal error |
+| Dim white | Assigned, idle (or ended — press to resume) |
+| Pulsing green | Agent is working |
+| Pulsing yellow | Agent needs input or permission |
+| Solid blue | Agent finished, awaiting review |
+| Flashing red | Session blocked / process failed |
 
 Head priority: error > needs input > completed > working > idle. Pressing the
 head targets the oldest session in the top class; repeated presses cycle.
@@ -44,6 +44,27 @@ timeout and always exits 0, so Claude behaves identically when the daemon is
 down. No prompts, transcripts or source code are ever collected — only session
 id, working directory and lifecycle events.
 
+### Launch sessions with `octo` (window focusing)
+
+```bash
+npm run link-cli      # once: puts `octo` and `octo-event` on your PATH
+octo claude           # instead of `claude`, in any project directory
+```
+
+The wrapper captures the terminal window you launched from, so pressing that
+session's leg (or the head) brings the right window to the foreground. If the
+terminal has been closed, the press reopens the session instead:
+a new Windows Terminal window runs `octo claude --resume <session-id>` in the
+saved working directory, and the session keeps its leg. Sessions started with
+plain `claude` are still tracked — they just can't be focused until ended,
+after which pressing their leg resumes them into a managed window.
+
+The wrapper also reports the agent's exit: an unexpected non-zero exit while a
+session looked alive is what turns a leg red.
+
+One terminal window per session works best — focusing targets windows, not
+tabs. Set `OCTODESK_FOCUS=0` to disable focusing entirely.
+
 ## Architecture
 
 ```
@@ -70,9 +91,11 @@ USB device — renders the same `DeviceCommand` frames (`LEG 1 YELLOW PULSE`,
 | `POST /api/events` | normalised `SessionEvent` from any adapter |
 | `GET /api/sessions` | current snapshot (sessions, device frame, serial preview) |
 | `GET /api/stream` | SSE: snapshot on every change |
-| `POST /api/press` | `{target:"head"}` or `{target:"leg", leg:n}` |
+| `POST /api/press` | `{target:"head"}` or `{target:"leg", leg:n}` → focuses/resumes |
 | `POST /api/sessions/clear` | `{provider, sessionId}` |
 | `POST /api/sessions/reassign` | `{provider, sessionId, leg}` |
+| `POST /api/wrappers` | `octo` registration: `{wrapId, pid, windowHandle, workingDirectory}` |
+| `POST /api/wrappers/exit` | `{wrapId, exitCode}` when the wrapped agent exits |
 
 ## Tests
 
@@ -83,8 +106,17 @@ npm run typecheck
 
 ## Roadmap
 
-- **Phase 2** — `octo claude` wrapper (window correlation via `OCTO_WRAP_ID`),
-  window focusing, click-to-resume (`claude --resume`), error detection on
-  failed resume
+- **Phase 2 (done)** — `octo claude` wrapper (window correlation via
+  `OCTO_WRAP_ID`), window focusing, click-to-resume, crash detection via
+  wrapper exit reports
 - **Phase 3** — USB serial adapter + firmware speaking the existing protocol;
   Codex adapter if wanted
+
+### Known limitations
+
+- Windows + Windows Terminal only (by design, for now)
+- Focusing brings the captured *window* forward; if a session lives in a
+  background tab of a shared window, the right window rises but not the tab
+- A failed resume (e.g. the agent can't find the saved session) currently
+  leaves the pressed session unchanged rather than marking it red — the new
+  terminal shows the agent's error and closes

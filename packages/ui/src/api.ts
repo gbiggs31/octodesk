@@ -18,6 +18,7 @@ export interface PressResponse {
   ok: boolean;
   session?: SessionRecord;
   action?: string;
+  detail?: string;
   reason?: string;
 }
 

@@ -20,14 +20,19 @@ export function mapClaudeHook(payload: ClaudeHookPayload): SessionEvent | null {
   const event = eventFor(payload);
   if (event === null) return null;
   if (!payload.session_id) return null;
-  return {
+  const normalised: SessionEvent = {
     provider: "claude",
     sessionId: payload.session_id,
     workingDirectory: payload.cwd ?? "",
     event,
     timestamp: new Date().toISOString(),
-    wrapId: process.env.OCTO_WRAP_ID || undefined,
   };
+  if (process.env.OCTO_WRAP_ID) normalised.wrapId = process.env.OCTO_WRAP_ID;
+  // Lets the daemon migrate the old session's leg when a resume mints a new id.
+  if (event === "session_started" && process.env.OCTO_RESUME_OF) {
+    normalised.resumeOf = process.env.OCTO_RESUME_OF;
+  }
+  return normalised;
 }
 
 function eventFor(payload: ClaudeHookPayload): SessionEventType | null {

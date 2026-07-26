@@ -13,6 +13,7 @@ import {
   type SessionEvent,
   type SessionRecord,
   type SessionState,
+  type WrapperInfo,
 } from "@octodesk/core";
 import type { DaemonConfig } from "./config.js";
 import type { Store } from "./store.js";
@@ -41,6 +42,7 @@ export interface PressResult {
 /** Orchestrates the pure core logic against the store, and notifies SSE listeners. */
 export class Engine {
   private records = new Map<string, SessionRecord>();
+  private wrappers = new Map<string, WrapperInfo>();
   private headCursor: string | null = null;
   private selected: { provider: string; sessionId: string } | null = null;
   private listeners = new Set<(snap: Snapshot) => void>();
@@ -50,6 +52,7 @@ export class Engine {
     private config: Pick<DaemonConfig, "endedTtlMs" | "staleTtlMs">,
   ) {
     for (const r of store.loadAll()) this.records.set(key(r.provider, r.sessionId), r);
+    for (const w of store.loadWrappers()) this.wrappers.set(w.wrapId, w);
   }
 
   onChange(fn: (snap: Snapshot) => void): () => void {
@@ -86,8 +89,18 @@ export class Engine {
     const next = transition(existing?.state, ev.event);
 
     if (!existing) {
+      // A resume that minted a fresh session id inherits the old session's leg.
+      let inheritedLeg: number | null = null;
+      if (ev.resumeOf && ev.resumeOf !== ev.sessionId) {
+        const old = this.records.get(key(ev.provider, ev.resumeOf));
+        if (old) {
+          inheritedLeg = old.leg;
+          this.records.delete(key(ev.provider, ev.resumeOf));
+          this.store.remove(ev.provider, ev.resumeOf);
+        }
+      }
       const record: SessionRecord = {
-        leg: allocateLeg(this.all(), null),
+        leg: inheritedLeg ?? allocateLeg(this.all(), null),
         provider: ev.provider,
         sessionId: ev.sessionId,
         workingDirectory: ev.workingDirectory,
@@ -101,7 +114,10 @@ export class Engine {
       this.store.upsert(record);
     } else {
       existing.lastEventAt = now;
-      if (next !== null) existing.state = next;
+      if (next !== null) {
+        existing.state = next;
+        if (next !== "error") existing.note = null; // recovery clears the explanation
+      }
       if (ev.wrapId) existing.wrapId = ev.wrapId;
       if (ev.workingDirectory) {
         existing.workingDirectory = ev.workingDirectory;
@@ -113,6 +129,49 @@ export class Engine {
       }
       this.store.upsert(existing);
     }
+    this.broadcast();
+  }
+
+  registerWrapper(info: WrapperInfo): void {
+    this.wrappers.set(info.wrapId, info);
+    this.store.upsertWrapper(info);
+  }
+
+  wrapperFor(session: SessionRecord): WrapperInfo | undefined {
+    return session.wrapId ? this.wrappers.get(session.wrapId) : undefined;
+  }
+
+  /**
+   * The wrapper reports its agent's exit. A non-zero exit while the session
+   * looked alive is the "process/integration failed" red the brief reserves
+   * for genuine breakage; a clean exit just marks the session ended.
+   */
+  wrapperExit(wrapId: string, exitCode: number): void {
+    this.wrappers.delete(wrapId);
+    this.store.removeWrapper(wrapId);
+    const session = this.all().find((r) => r.wrapId === wrapId);
+    if (!session || session.state === "ended") {
+      this.broadcast();
+      return;
+    }
+    if (exitCode !== 0 && session.state !== "completed") {
+      session.state = "error";
+      session.note = `Agent exited unexpectedly (code ${exitCode})`;
+    } else {
+      session.state = "ended";
+    }
+    session.lastEventAt = new Date().toISOString();
+    this.store.upsert(session);
+    this.broadcast();
+  }
+
+  markError(provider: string, sessionId: string, note: string): void {
+    const record = this.records.get(key(provider, sessionId));
+    if (!record) return;
+    record.state = "error";
+    record.note = note;
+    record.lastEventAt = new Date().toISOString();
+    this.store.upsert(record);
     this.broadcast();
   }
 

@@ -18,8 +18,25 @@ export interface SessionEvent {
   workingDirectory: string;
   event: SessionEventType;
   timestamp: string;
-  /** Set by the `octo` wrapper via OCTO_WRAP_ID env inheritance (Phase 2 window correlation). */
+  /** Set by the `octo` wrapper via OCTO_WRAP_ID env inheritance (window correlation). */
   wrapId?: string;
+  /**
+   * Set on session_started when this session was launched as a resume of an
+   * earlier one (OCTO_RESUME_OF). If the agent minted a fresh session id, the
+   * daemon migrates the old session's leg to this one.
+   */
+  resumeOf?: string;
+}
+
+/** A live `octo` wrapper process: the bridge between a session and its terminal window. */
+export interface WrapperInfo {
+  wrapId: string;
+  /** PID of the wrapper process (dies with its terminal). */
+  pid: number;
+  /** Win32 HWND of the terminal window captured at wrapper launch, as a decimal string. */
+  windowHandle: string | null;
+  workingDirectory: string;
+  createdAt: string;
 }
 
 export type SessionState =
@@ -47,7 +64,7 @@ export interface SessionRecord {
 
 export const LEG_COUNT = 8;
 
-export type LightColor = "off" | "white" | "yellow" | "green" | "red";
+export type LightColor = "off" | "white" | "yellow" | "green" | "blue" | "red";
 export type LightMode = "off" | "dim" | "solid" | "pulse" | "flash";
 
 export interface LightSpec {

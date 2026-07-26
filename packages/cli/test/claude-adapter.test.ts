@@ -27,8 +27,25 @@ describe("mapClaudeHook", () => {
     expect(ev.sessionId).toBe("abc-123");
     expect(ev.workingDirectory).toBe("C:\\dev\\proj");
     expect(Object.keys(ev).sort()).toEqual(
-      ["event", "provider", "sessionId", "timestamp", "workingDirectory", "wrapId"].sort(),
+      ["event", "provider", "sessionId", "timestamp", "workingDirectory"].sort(),
     );
+  });
+
+  it("attaches wrapId and resumeOf from the wrapper's environment", () => {
+    process.env.OCTO_WRAP_ID = "wrap-9";
+    process.env.OCTO_RESUME_OF = "old-session";
+    try {
+      const started = mapClaudeHook({ ...base, hook_event_name: "SessionStart" })!;
+      expect(started.wrapId).toBe("wrap-9");
+      expect(started.resumeOf).toBe("old-session");
+      // resumeOf is only meaningful at session start
+      const working = mapClaudeHook({ ...base, hook_event_name: "UserPromptSubmit" })!;
+      expect(working.wrapId).toBe("wrap-9");
+      expect(working.resumeOf).toBeUndefined();
+    } finally {
+      delete process.env.OCTO_WRAP_ID;
+      delete process.env.OCTO_RESUME_OF;
+    }
   });
 
   it("ignores irrelevant hooks and payloads without a session id", () => {
