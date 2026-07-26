@@ -1,0 +1,28 @@
+{
+  "name": "octodesk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ambient desktop octopus for AI coding sessions — virtual octopus MVP",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p packages/core && tsc -p packages/daemon && tsc -p packages/cli --noEmit",
+    "dev:daemon": "npm run dev -w @octodesk/daemon",
+    "dev:ui": "npm run dev -w @octodesk/ui",
+    "build:cli": "npm run build -w @octodesk/cli",
+    "install-hooks": "npm run build:cli && node packages/cli/dist/install-hooks.js"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}
