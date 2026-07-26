@@ -95,6 +95,7 @@ describe("wrapper routes and physical press actions", () => {
     const deps: FocusDeps = {
       platform: "win32",
       octoJsPath: "C:\\repo\\octo.js",
+      newSessionDir: "C:\\projects",
       runPowerShell: () => Promise.resolve(psExit),
       launchDetached: () => {},
     };
@@ -143,6 +144,28 @@ describe("wrapper routes and physical press actions", () => {
     await post(app, "/api/wrappers/exit", { wrapId: "w1", exitCode: 0 });
     const snap = (await get(app, "/api/sessions")).json();
     expect(snap.sessions[0].state).toBe("ended");
+  });
+
+  it("pressing an empty leg launches a new session and reserves that leg", async () => {
+    const store = new Store(":memory:");
+    const engine = new Engine(store, TTL);
+    const app = buildApp(engine, fakeFocus(0));
+    openApps.push(app);
+
+    const pressed = await post(app, "/api/press", { target: "leg", leg: 5 });
+    expect(pressed.statusCode).toBe(200);
+    expect(pressed.json()).toMatchObject({ ok: true, action: "launched" });
+
+    // The session the launch produces claims the pressed leg, not leg 1.
+    await post(app, "/api/events", event("fresh", "session_started"));
+    const snap = (await get(app, "/api/sessions")).json();
+    expect(snap.sessions[0]).toMatchObject({ sessionId: "fresh", leg: 5 });
+  });
+
+  it("pressing an empty leg without a focus service stays a plain miss", async () => {
+    const { app } = makeApp(); // no focus service
+    openApps.push(app);
+    expect((await post(app, "/api/press", { target: "leg", leg: 5 })).statusCode).toBe(404);
   });
 
   it("rejects malformed wrapper payloads", async () => {

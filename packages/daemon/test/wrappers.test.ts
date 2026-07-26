@@ -93,6 +93,42 @@ describe("wrapper exit reports", () => {
   });
 });
 
+describe("leg reservation (press-to-launch)", () => {
+  const T0 = "2026-07-26T10:00:00.000Z";
+
+  it("the next new session claims the reserved leg", () => {
+    const engine = makeEngine();
+    engine.reserveLeg(5, Date.parse(T0));
+    engine.applyEvent(ev("fresh", "session_started"), "2026-07-26T10:00:30.000Z");
+    expect(session(engine, "fresh")?.leg).toBe(5);
+  });
+
+  it("reservations expire after two minutes", () => {
+    const engine = makeEngine();
+    engine.reserveLeg(5, Date.parse(T0));
+    engine.applyEvent(ev("late", "session_started"), "2026-07-26T10:03:00.000Z");
+    expect(session(engine, "late")?.leg).toBe(1);
+  });
+
+  it("a reservation on a leg that got occupied falls back to normal allocation", () => {
+    const engine = makeEngine();
+    engine.reserveLeg(1, Date.parse(T0));
+    engine.applyEvent(ev("interloper", "session_started"), "2026-07-26T10:00:10.000Z"); // takes leg 1 via reservation
+    engine.reserveLeg(1, Date.parse(T0)); // stale: leg 1 now occupied
+    engine.applyEvent(ev("next", "session_started"), "2026-07-26T10:00:20.000Z");
+    expect(session(engine, "next")?.leg).toBe(2);
+  });
+
+  it("a reservation is consumed by one session only", () => {
+    const engine = makeEngine();
+    engine.reserveLeg(4, Date.parse(T0));
+    engine.applyEvent(ev("first", "session_started"), "2026-07-26T10:00:10.000Z");
+    engine.applyEvent(ev("second", "session_started"), "2026-07-26T10:00:20.000Z");
+    expect(session(engine, "first")?.leg).toBe(4);
+    expect(session(engine, "second")?.leg).toBe(1);
+  });
+});
+
 describe("resume migration (resumeOf)", () => {
   it("a resume that mints a new session id inherits the old session's leg", () => {
     const engine = makeEngine();

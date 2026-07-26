@@ -1,8 +1,15 @@
 import { execFile, spawn } from "node:child_process";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { SessionRecord, WrapperInfo } from "@octodesk/core";
 
-export type PressActionKind = "focused" | "resumed" | "no_window" | "disabled" | "failed";
+export type PressActionKind =
+  | "focused"
+  | "resumed"
+  | "launched"
+  | "no_window"
+  | "disabled"
+  | "failed";
 
 export interface FocusResult {
   action: PressActionKind;
@@ -14,6 +21,8 @@ export interface FocusDeps {
   platform: NodeJS.Platform;
   /** Absolute path to the built octo.js wrapper, used for resume launches. */
   octoJsPath: string;
+  /** Where sessions started from an empty leg press begin life. */
+  newSessionDir: string;
   /** Runs a PowerShell script, resolves with its exit code. */
   runPowerShell(script: string): Promise<number>;
   /** Fire-and-forget detached launch; throws synchronously if spawn fails. */
@@ -24,6 +33,7 @@ export function defaultFocusDeps(): FocusDeps {
   return {
     platform: process.platform,
     octoJsPath: fileURLToPath(new URL("../../cli/dist/octo.js", import.meta.url)),
+    newSessionDir: process.env.OCTODESK_NEW_SESSION_DIR ?? homedir(),
     runPowerShell(script) {
       return new Promise((resolve) => {
         execFile(
@@ -68,6 +78,24 @@ function focusScript(windowHandle: string): string {
  */
 export class FocusService {
   constructor(private deps: FocusDeps = defaultFocusDeps()) {}
+
+  /** Pressing an empty leg starts a fresh wrapped claude session. */
+  launchNew(): FocusResult {
+    if (process.env.OCTODESK_FOCUS === "0") return { action: "disabled" };
+    if (this.deps.platform !== "win32") {
+      return { action: "disabled", detail: "session launching is Windows-only in this version" };
+    }
+    try {
+      this.deps.launchDetached(
+        "wt",
+        ["-d", this.deps.newSessionDir, "node", this.deps.octoJsPath, "claude"],
+        this.deps.newSessionDir,
+      );
+      return { action: "launched" };
+    } catch (err) {
+      return { action: "failed", detail: `could not launch terminal: ${(err as Error).message}` };
+    }
+  }
 
   async act(session: SessionRecord, wrapper: WrapperInfo | undefined): Promise<FocusResult> {
     if (process.env.OCTODESK_FOCUS === "0") return { action: "disabled" };

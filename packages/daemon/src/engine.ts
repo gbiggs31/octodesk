@@ -40,9 +40,13 @@ export interface PressResult {
 }
 
 /** Orchestrates the pure core logic against the store, and notifies SSE listeners. */
+/** How long a pressed empty leg stays reserved for the session it launched. */
+const LEG_RESERVATION_MS = 120_000;
+
 export class Engine {
   private records = new Map<string, SessionRecord>();
   private wrappers = new Map<string, WrapperInfo>();
+  private pendingLeg: { leg: number; at: number } | null = null;
   private headCursor: string | null = null;
   private selected: { provider: string; sessionId: string } | null = null;
   private listeners = new Set<(snap: Snapshot) => void>();
@@ -99,8 +103,18 @@ export class Engine {
           this.store.remove(ev.provider, ev.resumeOf);
         }
       }
+      // A press on an empty leg reserves it for the session it launched.
+      let reservedLeg: number | null = null;
+      if (
+        this.pendingLeg &&
+        Date.parse(now) - this.pendingLeg.at < LEG_RESERVATION_MS &&
+        !this.all().some((r) => r.leg === this.pendingLeg!.leg)
+      ) {
+        reservedLeg = this.pendingLeg.leg;
+        this.pendingLeg = null;
+      }
       const record: SessionRecord = {
-        leg: inheritedLeg ?? allocateLeg(this.all(), null),
+        leg: inheritedLeg ?? reservedLeg ?? allocateLeg(this.all(), null),
         provider: ev.provider,
         sessionId: ev.sessionId,
         workingDirectory: ev.workingDirectory,
@@ -130,6 +144,11 @@ export class Engine {
       this.store.upsert(existing);
     }
     this.broadcast();
+  }
+
+  /** Reserve an empty leg for the next brand-new session (press-to-launch). */
+  reserveLeg(leg: number, at: number = Date.now()): void {
+    this.pendingLeg = { leg, at };
   }
 
   registerWrapper(info: WrapperInfo): void {

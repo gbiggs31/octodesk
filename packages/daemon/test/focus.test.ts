@@ -38,6 +38,7 @@ function makeService(opts: { psExit?: number; launchThrows?: boolean; platform?:
   const deps: FocusDeps = {
     platform: opts.platform ?? "win32",
     octoJsPath: "C:\\repo\\packages\\cli\\dist\\octo.js",
+    newSessionDir: "C:\\projects",
     runPowerShell: (script) => {
       recorded.scripts.push(script);
       return Promise.resolve(opts.psExit ?? 0);
@@ -115,6 +116,28 @@ describe("FocusService.act", () => {
     const result = await service.act(session(), wrapper());
     expect(result.action).toBe("disabled");
     expect(recorded.scripts).toHaveLength(0);
+    expect(recorded.launches).toHaveLength(0);
+  });
+
+  it("launchNew starts a wrapped claude session in the configured directory", () => {
+    const { service, recorded } = makeService();
+    const result = service.launchNew();
+    expect(result.action).toBe("launched");
+    expect(recorded.launches[0]).toEqual({
+      command: "wt",
+      args: ["-d", "C:\\projects", "node", "C:\\repo\\packages\\cli\\dist\\octo.js", "claude"],
+      cwd: "C:\\projects",
+    });
+  });
+
+  it("launchNew reports failure when the terminal cannot start", () => {
+    const { service } = makeService({ launchThrows: true });
+    expect(service.launchNew().action).toBe("failed");
+  });
+
+  it("launchNew is disabled off-Windows", () => {
+    const { service, recorded } = makeService({ platform: "darwin" });
+    expect(service.launchNew().action).toBe("disabled");
     expect(recorded.launches).toHaveLength(0);
   });
 

@@ -62,6 +62,19 @@ export function buildApp(engine: Engine, focus?: FocusService): FastifyInstance 
       return reply.code(400).send({ ok: false, error: "target must be 'head' or 'leg' with a leg number" });
     }
     const result = engine.press(target);
+    if (!result.ok && target.type === "leg" && focus) {
+      // Empty leg: start a fresh session and reserve this leg for it.
+      const outcome = focus.launchNew();
+      if (outcome.action === "launched") {
+        engine.reserveLeg(target.leg);
+        return reply.send({
+          ok: true,
+          action: "launched",
+          detail: `starting a new claude session on leg ${target.leg}`,
+        });
+      }
+      return reply.code(404).send({ ...result, action: outcome.action, detail: outcome.detail });
+    }
     if (!result.ok || !result.session || !focus) {
       return reply.code(result.ok ? 200 : 404).send(result);
     }

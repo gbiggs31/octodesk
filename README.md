@@ -47,6 +47,7 @@ id, working directory and lifecycle events.
 ### Launch sessions with `octo` (window focusing)
 
 ```bash
+cd <this repo>        # npm scripts must run from the repo directory
 npm run link-cli      # once: puts `octo` and `octo-event` on your PATH
 octo claude           # instead of `claude`, in any project directory
 ```
@@ -61,6 +62,11 @@ after which pressing their leg resumes them into a managed window.
 
 The wrapper also reports the agent's exit: an unexpected non-zero exit while a
 session looked alive is what turns a leg red.
+
+Pressing an **empty** leg starts a brand-new `octo claude` session in a fresh
+terminal and reserves that leg for it. New sessions start in your home
+directory by default — set `OCTODESK_NEW_SESSION_DIR` (e.g. your projects
+folder) to change where they begin, then `cd` where you need.
 
 One terminal window per session works best — focusing targets windows, not
 tabs. Set `OCTODESK_FOCUS=0` to disable focusing entirely.

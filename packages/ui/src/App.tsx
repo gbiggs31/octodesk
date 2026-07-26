@@ -16,8 +16,12 @@ export function App() {
 
   async function handlePress(target: "head" | "leg", leg?: number) {
     const result = await press(target, leg);
+    if (result.action === "launched") {
+      showToast(result.detail ?? "Starting a new claude session…");
+      return;
+    }
     if (!result.ok || !result.session) {
-      showToast(result.reason ?? "Nothing there");
+      showToast(result.detail ?? result.reason ?? "Nothing there");
       return;
     }
     const name = `${result.session.projectName} (${result.session.provider})`;
